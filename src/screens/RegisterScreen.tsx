@@ -46,6 +46,17 @@ export default function RegisterScreen() {
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       Alert.alert('Missing fields', 'Fill in all fields.'); return;
     }
+    // Basic email format check
+    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address (e.g. you@example.com).'); return;
+    }
+    // Common TLD typo check (.comn, .cmo, .ocm, etc.)
+    const tld = email.trim().split('.').pop()?.toLowerCase() ?? '';
+    const comTypos = ['comn', 'cmo', 'ocm', 'con', 'vom', 'cpm', 'comm', 'xom', 'cob', 'col'];
+    if (comTypos.includes(tld)) {
+      Alert.alert('Check your email', `".${tld}" doesn't look right — did you mean ".com"?`); return;
+    }
     if (password.length < 8) {
       Alert.alert('Weak password', 'Use at least 8 characters.'); return;
     }
