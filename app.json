@@ -1,0 +1,87 @@
+{
+  "expo": {
+    "name": "Recon",
+    "slug": "Recon",
+    "version": "1.0.0",
+    "scheme": "recon",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a3a2a"
+    },
+    "updates": {
+      "enabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.recon.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Recon uses the camera to capture field observations.",
+        "NSPhotoLibraryUsageDescription": "Recon accesses your photo library for field log entries.",
+        "NSPhotoLibraryAddUsageDescription": "Recon saves photos to your library.",
+        "NSLocationWhenInUseUsageDescription": "Recon records GPS coordinates for each field entry.",
+        "NSMicrophoneUsageDescription": "Recon needs microphone access to record video entries.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.recon.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#0F1923"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Recon records GPS coordinates for each field entry."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Recon accesses your photos.",
+          "cameraPermission": "Recon uses the camera."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Recon to access photos.",
+          "savePhotosPermission": "Allow Recon to save photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      "expo-sharing"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d916ef7d-efaa-429d-8b2a-b69dae4de56f"
+      }
+    },
+    "owner": "ndahlan"
+  }
+}
