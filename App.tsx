@@ -56,10 +56,18 @@ function AppNavigator() {
           headerRight: () => (
             <TouchableOpacity
               onPress={() => (nav as any).navigate('Profile')}
-              style={{ marginRight: 16 }}
+              style={{ marginRight: 14 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={{ color: '#fff', fontSize: 22 }}>👤</Text>
+              <View style={{
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: '#fff',
+                alignItems: 'center', justifyContent: 'center',
+                shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
+                elevation: 3,
+              }}>
+                <Text style={{ fontSize: 20 }}>👤</Text>
+              </View>
             </TouchableOpacity>
           ),
         })} />
@@ -142,17 +150,24 @@ export default function App() {
     } catch { }
   };
 
-  // Handle recon:// deep links (password recovery)
+  // Handle recon:// deep links (password recovery + email confirmation)
   const handleDeepLink = useCallback(async (url: string) => {
     if (!url) return;
-    if (url.includes('reset-password') || url.includes('type=recovery')) {
-      const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
-      const params = new URLSearchParams(fragment);
-      const access_token = params.get('access_token');
-      const refresh_token = params.get('refresh_token') ?? '';
-      if (access_token) {
-        await hubSupabase.auth.setSession({ access_token, refresh_token });
-      }
+    const fragment = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
+    const params = new URLSearchParams(fragment);
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token') ?? '';
+    const type = params.get('type') ?? '';
+
+    if (!access_token) return;
+
+    if (type === 'recovery' || url.includes('reset-password') || url.includes('type=recovery')) {
+      // Password reset
+      await hubSupabase.auth.setSession({ access_token, refresh_token });
+    } else if (type === 'signup' || type === 'email' || url.includes('type=signup')) {
+      // Email confirmation — set the session so the user is logged in right away
+      await hubSupabase.auth.setSession({ access_token, refresh_token });
+      // onAuthStateChange fires SIGNED_IN → setScreenState('ready')
     }
   }, []);
 

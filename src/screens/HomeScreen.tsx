@@ -13,7 +13,7 @@ import { useIsOnline } from '../hooks/useIsOnline';
 import { getPendingCount } from '../db/localDb';
 import { Project, AppStackParamList } from '../types';
 
-const BUILD_DATE = 'v4.2.2'; // bump this with each new APK build
+const BUILD_DATE = 'v4.3.3'; // bump this with each new APK build
 function buildStamp(): string {
   if (__DEV__) return 'Dev build';
   return `Build ${BUILD_DATE}`;
@@ -199,6 +199,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.compactCard}
         onPress={() => navigation.navigate('Gallery', { project: item })}
+        onLongPress={() => Alert.alert('Project Name', item.name)}
         activeOpacity={0.85}
       >
         <View style={[styles.cardAccent, { backgroundColor: color }]} />
@@ -208,8 +209,6 @@ export default function HomeScreen() {
             <Text
               style={styles.compactName}
               numberOfLines={1}
-              onLongPress={() => Alert.alert('Project Name', item.name)}
-              suppressHighlighting
             >
               {item.name}
             </Text>

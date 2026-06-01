@@ -1,28 +1,104 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { hubSupabase } from '../lib/hubSupabase';
 import { AuthStackParamList } from '../types';
 
 type Nav = StackNavigationProp<AuthStackParamList, 'Login'>;
 
+const CRED_KEY = 'recon_saved_credentials';
+
+interface SavedCreds { email: string; password: string; }
+
 export default function LoginScreen() {
   const navigation = useNavigation<Nav>();
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
 
-  const signIn = async () => {
-    if (!email.trim() || !password) { Alert.alert('Missing fields', 'Enter email and password.'); return; }
+  // Biometric state
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [savedCreds, setSavedCreds] = useState<SavedCreds | null>(null);
+  const [biometricLabel, setBiometricLabel] = useState('Biometric Login');
+
+  // ── Check biometric capability + saved credentials on mount ──────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const hasHardware  = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled   = await LocalAuthentication.isEnrolledAsync();
+        const types        = await LocalAuthentication.supportedAuthenticationTypesAsync();
+
+        if (hasHardware && isEnrolled) {
+          const hasFace = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+          setBiometricLabel(hasFace ? '😊 Sign in with Face ID' : '👆 Sign in with Fingerprint');
+          setBiometricAvailable(true);
+        }
+
+        const raw = await SecureStore.getItemAsync(CRED_KEY);
+        if (raw) {
+          const creds: SavedCreds = JSON.parse(raw);
+          setSavedCreds(creds);
+          setEmail(creds.email); // pre-fill email for convenience
+        }
+      } catch { /* SecureStore may not be available in all environments */ }
+    })();
+  }, []);
+
+  // ── Biometric login ───────────────────────────────────────────────────────
+  const loginWithBiometric = async () => {
+    if (!savedCreds) {
+      Alert.alert('No saved credentials', 'Sign in with email and password first, then enable biometric login.');
+      return;
+    }
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Sign in to Recon',
+        fallbackLabel: 'Use password',
+        disableDeviceFallback: false,
+      });
+      if (result.success) {
+        await doSignIn(savedCreds.email, savedCreds.password, false);
+      }
+    } catch (e: any) {
+      Alert.alert('Biometric error', e.message ?? 'Could not authenticate.');
+    }
+  };
+
+  // ── Core sign-in logic ────────────────────────────────────────────────────
+  const doSignIn = async (loginEmail: string, loginPassword: string, offerSave: boolean) => {
     setLoading(true);
     try {
-      const { error } = await hubSupabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      const { error } = await hubSupabase.auth.signInWithPassword({
+        email: loginEmail.trim().toLowerCase(),
+        password: loginPassword,
+      });
       if (error) throw error;
+
+      // Offer to save credentials after a successful manual login
+      if (offerSave) {
+        Alert.alert(
+          'Save login?',
+          'Save your email and password so you can sign in with biometrics next time.',
+          [
+            {
+              text: 'Save', onPress: async () => {
+                try {
+                  await SecureStore.setItemAsync(CRED_KEY, JSON.stringify({ email: loginEmail.trim().toLowerCase(), password: loginPassword }));
+                } catch { /* ignore */ }
+              },
+            },
+            { text: 'Not now', style: 'cancel' },
+          ],
+        );
+      }
     } catch (e: any) {
       Alert.alert('Sign in failed', e?.message ?? 'Please try again.');
     } finally {
@@ -30,9 +106,15 @@ export default function LoginScreen() {
     }
   };
 
+  const signIn = () => {
+    if (!email.trim() || !password) { Alert.alert('Missing fields', 'Enter email and password.'); return; }
+    doSignIn(email, password, true);
+  };
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
         <View style={styles.header}>
           <Text style={styles.logo}>🔍</Text>
           <Text style={styles.title}>Recon</Text>
@@ -70,10 +152,25 @@ export default function LoginScreen() {
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Sign In</Text>}
           </TouchableOpacity>
 
+          {/* ── Biometric button — only if hardware available + creds saved ── */}
+          {biometricAvailable && savedCreds && (
+            <TouchableOpacity style={styles.biometricBtn} onPress={loginWithBiometric} disabled={loading}>
+              <Text style={styles.biometricText}>{biometricLabel}</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Hint when biometrics available but no saved credentials yet */}
+          {biometricAvailable && !savedCreds && (
+            <Text style={styles.biometricHint}>
+              💡 Sign in once to enable biometric login next time
+            </Text>
+          )}
+
           <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Register')}>
             <Text style={styles.linkText}>No account? <Text style={styles.linkBold}>Create one →</Text></Text>
           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -98,6 +195,13 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: '#1a3a2a', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 16 },
   btnDisabled: { backgroundColor: '#6B9E8A' },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  // Biometric
+  biometricBtn: {
+    marginTop: 12, borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#1a3a2a', backgroundColor: '#fff',
+  },
+  biometricText: { color: '#1a3a2a', fontSize: 15, fontWeight: '700' },
+  biometricHint: { textAlign: 'center', color: '#94a3b8', fontSize: 12, marginTop: 14, lineHeight: 18 },
   link: { marginTop: 24, alignItems: 'center' },
   linkText: { color: '#888', fontSize: 14 },
   linkBold: { color: '#1a3a2a', fontWeight: '700' },

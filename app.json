@@ -75,7 +75,8 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
