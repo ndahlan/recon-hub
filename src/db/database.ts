@@ -51,25 +51,24 @@ export async function getProjects(): Promise<Project[]> {
 }
 
 async function _fetchAllProjects(session: any): Promise<Project[]> {
-  // Single query — Supabase RLS returns every project the user can see:
-  //   • own projects          (owner_id = auth.uid())
-  //   • accepted memberships  (project_members.user_id = auth.uid() AND accepted)
-  //   • hub invitations       (hub_invitations.invited_email = auth.email())
-  //
-  // Previously we fired three parallel queries and combined IDs manually.
-  // Any query that returned an RLS error was silently treated as [] — meaning
-  // shared projects would vanish without any visible failure.  One query is
-  // simpler, and any real error now propagates so the caller can act on it.
-  const { data, error } = await hubSupabase
-    .from('projects')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // Fetch projects + current user's admin memberships in parallel
+  const [{ data, error }, { data: adminRows }] = await Promise.all([
+    hubSupabase.from('projects').select('*').order('created_at', { ascending: false }),
+    hubSupabase.from('project_members')
+      .select('project_id')
+      .eq('user_id', session.user.id)
+      .eq('is_admin', true)
+      .eq('accepted', true),
+  ]);
 
   if (error) throw error;
+
+  const adminSet = new Set((adminRows ?? []).map((r: any) => r.project_id));
 
   return (data ?? []).map((p: any) => ({
     ...(p as Project),
     is_owner: p.owner_id === session.user.id,
+    is_admin: adminSet.has(p.id),
   }));
 }
 
@@ -173,15 +172,15 @@ export async function inviteMember(
     .insert({ project_id: project.id, invited_email: normalizedEmail, role, accepted: false });
   if (error) throw error;
 
-  // Also write to hub_invitations for cross-device discovery
-  const { data: { session } } = await hubSupabase.auth.getSession();
+  // Also write to hub_invitations for cross-device discovery.
+  // owner_id is always the project owner (not the inviter, who may be an admin).
   const { error: hubError } = await hubSupabase
     .from('hub_invitations')
     .insert({
       project_id: project.id,
       invited_email: normalizedEmail,
       role,
-      owner_id: session?.user.id,
+      owner_id: project.owner_id,
       supabase_url: HUB_URL,
       supabase_anon_key: HUB_KEY,
     });
@@ -190,6 +189,14 @@ export async function inviteMember(
 
 export async function removeMember(memberId: string): Promise<void> {
   const { error } = await hubSupabase.from('project_members').delete().eq('id', memberId);
+  if (error) throw error;
+}
+
+export async function setMemberAdmin(memberId: string, isAdmin: boolean): Promise<void> {
+  const { error } = await hubSupabase
+    .from('project_members')
+    .update({ is_admin: isAdmin })
+    .eq('id', memberId);
   if (error) throw error;
 }
 

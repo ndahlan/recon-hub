@@ -10,10 +10,11 @@ import { hubSupabase } from '../lib/hubSupabase';
 import { getProjects, deleteProject, leaveProject, acceptPendingInvitations } from '../db/database';
 import { useUploadQueue } from '../hooks/useUploadQueue';
 import { useIsOnline } from '../hooks/useIsOnline';
+import { useUnreadComments } from '../hooks/useUnreadComments';
 import { getPendingCount } from '../db/localDb';
 import { Project, AppStackParamList } from '../types';
 
-const BUILD_DATE = 'v4.3.4'; // bump this with each new APK build
+const BUILD_DATE = 'v4.4.0'; // bump this with each new APK build
 function buildStamp(): string {
   if (__DEV__) return 'Dev build';
   return `Build ${BUILD_DATE}`;
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('yours');
   const hasLoaded = useRef(false);
   const { pendingCount } = useUploadQueue();
@@ -56,10 +58,14 @@ export default function HomeScreen() {
   useEffect(() => {
     hubSupabase.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
+      setCurrentUserId(user?.id ?? null);
       const name = user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? '';
       setUserName(name);
     });
   }, []);
+
+  const projectIds = projects.map((p) => p.id);
+  const { unreadByProject, totalUnread } = useUnreadComments(projectIds, currentUserId);
 
   const load = useCallback(async () => {
     try {
@@ -166,6 +172,7 @@ export default function HomeScreen() {
   // ── "Your Projects" card — clean, no clutter ──────────────────────────────
   const renderYoursCard = ({ item }: { item: Project }) => {
     const color = projectColor(item.id);
+    const unread = unreadByProject[item.id] ?? 0;
     return (
       <TouchableOpacity
         style={styles.card}
@@ -176,6 +183,11 @@ export default function HomeScreen() {
         <View style={styles.cardBody}>
           <View style={styles.cardTop}>
             <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            {unread > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>💬 {unread > 99 ? '99+' : unread}</Text>
+              </View>
+            )}
           </View>
           {item.description ? (
             <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
@@ -195,6 +207,7 @@ export default function HomeScreen() {
   // Name is truncated; long-press it to reveal the full name in an alert.
   const renderAllCard = ({ item }: { item: Project }) => {
     const color = projectColor(item.id);
+    const unread = unreadByProject[item.id] ?? 0;
     return (
       <TouchableOpacity
         style={styles.compactCard}
@@ -204,7 +217,7 @@ export default function HomeScreen() {
       >
         <View style={[styles.cardAccent, { backgroundColor: color }]} />
         <View style={styles.compactBody}>
-          {/* Single row: name + shared badge + action button */}
+          {/* Single row: name + unread badge + shared badge + action button */}
           <View style={styles.compactRow}>
             <Text
               style={styles.compactName}
@@ -212,6 +225,11 @@ export default function HomeScreen() {
             >
               {item.name}
             </Text>
+            {unread > 0 && (
+              <View style={styles.unreadBadgeCompact}>
+                <Text style={styles.unreadTextCompact}>💬 {unread > 99 ? '99+' : unread}</Text>
+              </View>
+            )}
             {!item.is_owner && (
               <View style={styles.sharedBadge}>
                 <Text style={styles.sharedText}>Shared</Text>
@@ -314,9 +332,16 @@ export default function HomeScreen() {
           onPress={() => setActiveTab('all')}
           activeOpacity={0.75}
         >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-            All Projects
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
+              All Projects
+            </Text>
+            {totalUnread > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{totalUnread > 99 ? '99+' : totalUnread}</Text>
+              </View>
+            )}
+          </View>
           {activeTab === 'all' && <View style={styles.tabUnderline} />}
         </TouchableOpacity>
       </View>
@@ -399,6 +424,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8, paddingHorizontal: 4, marginBottom: 10, marginTop: 4,
   },
   list: { padding: 16, paddingBottom: 100 },
+
+  // Unread comment badges
+  unreadBadge: {
+    backgroundColor: '#FEE2E2', borderRadius: 10,
+    paddingHorizontal: 7, paddingVertical: 2,
+    flexDirection: 'row', alignItems: 'center',
+  },
+  unreadText: { fontSize: 11, color: '#DC2626', fontWeight: '700' },
+  unreadBadgeCompact: {
+    backgroundColor: '#FEE2E2', borderRadius: 8,
+    paddingHorizontal: 5, paddingVertical: 1,
+  },
+  unreadTextCompact: { fontSize: 10, color: '#DC2626', fontWeight: '700' },
+  // Tab notification dot
+  tabBadge: {
+    backgroundColor: '#EF4444', borderRadius: 9,
+    minWidth: 18, height: 18,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 
   // ── "Your Projects" cards (full card with description + arrow) ─────────────
   card: {

@@ -73,7 +73,7 @@ function AppNavigator() {
         })} />
       <AppStack.Screen name="CreateProject" component={CreateProjectScreen} options={{ title: 'New Project' }} />
       <AppStack.Screen name="Gallery" component={GalleryScreen}
-        options={({ route, navigation: nav }) => {
+        options={({ route }) => {
           const fullName: string = (route.params as any)?.project?.name ?? 'Gallery';
           const words = fullName.split(' ');
           const isTruncated = words.length >= 4;
@@ -85,10 +85,7 @@ function AppNavigator() {
                 activeOpacity={isTruncated ? 0.6 : 1}
                 style={{ flexDirection: 'row', alignItems: 'center' }}
               >
-                <Text
-                  style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}
-                  numberOfLines={1}
-                >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }} numberOfLines={1}>
                   {shortName}
                 </Text>
                 {isTruncated && (
@@ -96,23 +93,7 @@ function AppNavigator() {
                 )}
               </TouchableOpacity>
             ),
-            headerRight: () => (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, gap: 4 }}>
-                <TouchableOpacity
-                  onPress={() => (nav as any).navigate('ProjectComments', { project: (route.params as any)?.project })}
-                  style={{ padding: 8 }}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 20 }}>💬</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => (nav as any).navigate('ProjectSettings', { project: (route.params as any)?.project })}
-                  style={{ padding: 8 }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 22 }}>⚙</Text>
-                </TouchableOpacity>
-              </View>
-            ),
+            // headerRight is injected by GalleryScreen via useLayoutEffect (includes unread badge)
           });
         }} />
       <AppStack.Screen name="AddEntry" component={AddEntryScreen} options={{ title: 'New Entry' }} />

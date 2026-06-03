@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, Image, RefreshControl,
   ScrollView, StyleSheet, Text, TouchableOpacity, View,
@@ -8,6 +8,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { getEntries, archiveEntry } from '../db/database';
 import { subscribeToUploads } from '../hooks/useUploadQueue';
 import { useIsOnline } from '../hooks/useIsOnline';
+import { useUnreadComments } from '../hooks/useUnreadComments';
+import { hubSupabase } from '../lib/hubSupabase';
 import UploadStatusBadge from '../components/UploadStatusBadge';
 import { FieldEntry, CATEGORIES, AppStackParamList } from '../types';
 
@@ -28,6 +30,57 @@ export default function GalleryScreen() {
   const isOnline = useIsOnline();
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    hubSupabase.auth.getSession().then(({ data }) => {
+      setCurrentUserId(data.session?.user?.id ?? null);
+    });
+  }, []);
+
+  const { unreadByProject, markRead } = useUnreadComments([project.id], currentUserId);
+  const unread = unreadByProject[project.id] ?? 0;
+
+  // ── Inject badge into the header 💬 button ────────────────────────────────
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, gap: 4 }}>
+          <TouchableOpacity
+            style={{ padding: 8 }}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            onPress={async () => {
+              await markRead(project.id);
+              (navigation as any).navigate('ProjectComments', { project });
+            }}
+          >
+            <View>
+              <Text style={{ color: '#fff', fontSize: 20 }}>💬</Text>
+              {unread > 0 && (
+                <View style={{
+                  position: 'absolute', top: -2, right: -2,
+                  backgroundColor: '#EF4444', borderRadius: 9,
+                  minWidth: 16, height: 16,
+                  alignItems: 'center', justifyContent: 'center',
+                  paddingHorizontal: 2,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>
+                    {unread > 99 ? '99+' : unread}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ padding: 8 }}
+            onPress={() => (navigation as any).navigate('ProjectSettings', { project })}
+          >
+            <Text style={{ color: '#fff', fontSize: 22 }}>⚙</Text>
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation, project, unread, markRead]);
 
   const load = useCallback(async () => {
     const data = await getEntries(project.id);

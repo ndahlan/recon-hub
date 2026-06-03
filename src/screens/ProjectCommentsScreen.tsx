@@ -13,9 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hubSupabase } from '../lib/hubSupabase';
 import { getProjectComments, addProjectComment, deleteProjectComment, getProjectMembers } from '../db/database';
 import { AppStackParamList, ProjectComment } from '../types';
+
+const SEEN_KEY = 'recon_comments_seen';
 
 type Route = RouteProp<AppStackParamList, 'ProjectComments'>;
 
@@ -95,6 +98,16 @@ export default function ProjectCommentsScreen() {
         }
       }
       setAllMembers(merged);
+    })();
+  }, [project.id]);
+
+  // ── Mark this project's comments as read on open ──────────────────────────
+  useEffect(() => {
+    (async () => {
+      const raw = await AsyncStorage.getItem(SEEN_KEY);
+      const seenMap: Record<string, string> = raw ? JSON.parse(raw) : {};
+      seenMap[project.id] = new Date().toISOString();
+      await AsyncStorage.setItem(SEEN_KEY, JSON.stringify(seenMap));
     })();
   }, [project.id]);
 

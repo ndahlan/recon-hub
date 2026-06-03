@@ -15,6 +15,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   is_owner?: boolean;
+  is_admin?: boolean;   // true when current user is an admin member of this project
   // For shared projects — points to the owner's Supabase config
   supabase_url?: string;
   supabase_anon_key?: string;
@@ -61,6 +62,7 @@ export interface ProjectMember {
   user_id?: string;
   invited_email: string;
   role: 'editor' | 'viewer';
+  is_admin: boolean;
   accepted: boolean;
   invited_at: string;
   // Supabase config for accessing the owner's data
