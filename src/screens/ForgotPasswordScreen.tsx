@@ -22,7 +22,7 @@ export default function ForgotPasswordScreen() {
     try {
       const { error } = await hubSupabase.auth.resetPasswordForEmail(
         email.trim().toLowerCase(),
-        { redirectTo: 'recon://reset-password' },
+        { redirectTo: 'https://bright-cendol-a9299f.netlify.app' },
       );
       if (error) throw error;
       setSent(true);

@@ -143,12 +143,14 @@ export default function App() {
     if (!access_token) return;
 
     if (type === 'recovery' || url.includes('reset-password') || url.includes('type=recovery')) {
-      // Password reset
+      // Password reset — setSession fires SIGNED_IN (not PASSWORD_RECOVERY), so we
+      // must force the correct screen state ourselves AFTER the session is set.
       await hubSupabase.auth.setSession({ access_token, refresh_token });
+      setScreenState('password_recovery');
     } else if (type === 'signup' || type === 'email' || url.includes('type=signup')) {
-      // Email confirmation — set the session so the user is logged in right away
-      await hubSupabase.auth.setSession({ access_token, refresh_token });
+      // Email confirmation — set the session so the user is logged in right away.
       // onAuthStateChange fires SIGNED_IN → setScreenState('ready')
+      await hubSupabase.auth.setSession({ access_token, refresh_token });
     }
   }, []);
 

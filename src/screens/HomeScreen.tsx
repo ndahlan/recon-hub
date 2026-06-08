@@ -14,7 +14,7 @@ import { useUnreadComments } from '../hooks/useUnreadComments';
 import { getPendingCount } from '../db/localDb';
 import { Project, AppStackParamList } from '../types';
 
-const BUILD_DATE = 'v4.4.0'; // bump this with each new APK build
+const BUILD_DATE = 'v4.4.1'; // bump this with each new APK build
 function buildStamp(): string {
   if (__DEV__) return 'Dev build';
   return `Build ${BUILD_DATE}`;
